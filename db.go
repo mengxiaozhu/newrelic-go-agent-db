@@ -56,7 +56,11 @@ func (w *WrapperConnQueryerAndExecer) Query(query string, args []driver.Value) (
 	defer txn.End()
 	rs, err := w.Queryer.Query(query, args)
 	if err != nil {
-		txn.NoticeError(err)
+		if err == driver.ErrSkip {
+			txn.Ignore()
+		} else {
+			txn.NoticeError(err)
+		}
 	}
 	return rs, err
 }
@@ -66,7 +70,11 @@ func (w *WrapperConnQueryerAndExecer) Exec(query string, args []driver.Value) (d
 	defer txn.End()
 	rs, err := w.Execer.Exec(query, args)
 	if err != nil {
-		txn.NoticeError(err)
+		if err == driver.ErrSkip {
+			txn.Ignore()
+		} else {
+			txn.NoticeError(err)
+		}
 	}
 	return rs, err
 }
@@ -76,7 +84,11 @@ func (w *WrapperConnQueryerAndExecer) QueryContext(ctx context.Context, query st
 	defer txn.End()
 	rs, err := w.QueryerContext.QueryContext(ctx, query, args)
 	if err != nil {
-		txn.NoticeError(err)
+		if err == driver.ErrSkip {
+			txn.Ignore()
+		} else {
+			txn.NoticeError(err)
+		}
 	}
 	return rs, err
 }
@@ -87,7 +99,11 @@ func (w *WrapperConnQueryerAndExecer) ExecContext(ctx context.Context, query str
 	rs, err := w.ExecerContext.ExecContext(ctx, query, args)
 	txn.End()
 	if err != nil {
-		txn.NoticeError(err)
+		if err == driver.ErrSkip {
+			txn.Ignore()
+		} else {
+			txn.NoticeError(err)
+		}
 	}
 	return rs, err
 }
@@ -126,8 +142,13 @@ func (s *WrapperStmt) Exec(args []driver.Value) (driver.Result, error) {
 	txn := s.Application.StartTransaction(s.prefix+s.query, nil, nil)
 	defer txn.End()
 	r, e := s.Stmt.Exec(args)
+
 	if e != nil {
-		txn.NoticeError(e)
+		if e == driver.ErrSkip {
+			txn.Ignore()
+		} else {
+			txn.NoticeError(e)
+		}
 	}
 	return r, e
 }
@@ -137,7 +158,11 @@ func (s *WrapperStmt) Query(args []driver.Value) (driver.Rows, error) {
 	defer txn.End()
 	r, e := s.Stmt.Query(args)
 	if e != nil {
-		txn.NoticeError(e)
+		if e == driver.ErrSkip {
+			txn.Ignore()
+		} else {
+			txn.NoticeError(e)
+		}
 	}
 	return r, e
 }
@@ -153,7 +178,11 @@ func (s *ContextWrapperStmt) ExecContext(ctx context.Context, args []driver.Name
 	defer txn.End()
 	r, e := s.StmtExecContext.ExecContext(ctx, args)
 	if e != nil {
-		txn.NoticeError(e)
+		if e == driver.ErrSkip {
+			txn.Ignore()
+		} else {
+			txn.NoticeError(e)
+		}
 	}
 	return r, e
 }
@@ -163,7 +192,11 @@ func (s *ContextWrapperStmt) QueryContext(ctx context.Context, args []driver.Nam
 	defer txn.End()
 	r, e := s.StmtQueryContext.QueryContext(ctx, args)
 	if e != nil {
-		txn.NoticeError(e)
+		if e == driver.ErrSkip {
+			txn.Ignore()
+		} else {
+			txn.NoticeError(e)
+		}
 	}
 	return r, e
 }
