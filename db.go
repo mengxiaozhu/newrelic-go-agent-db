@@ -8,14 +8,15 @@ import (
 
 var _ driver.Driver = &WrapperDriver{}
 
-func New(driver driver.Driver, application newrelic.Application) *WrapperDriver {
+func New(driver driver.Driver, application newrelic.Application, prefix string) *WrapperDriver {
 	return &WrapperDriver{
-		driver, application,
+		driver, prefix, application,
 	}
 }
 
 type WrapperDriver struct {
 	driver.Driver
+	prefix      string
 	application newrelic.Application
 }
 
@@ -29,7 +30,7 @@ func (d *WrapperDriver) Open(name string) (driver.Conn, error) {
 			if ec, ok := conn.(driver.ExecerContext); ok {
 				if e, ok := conn.(driver.Execer); ok {
 					return &WrapperConnQueryerAndExecer{
-						WrapperConn:    WrapperConn{conn, d.application},
+						WrapperConn:    WrapperConn{d.prefix, conn, d.application},
 						QueryerContext: qc,
 						ExecerContext:  ec,
 						Queryer:        q,
@@ -39,7 +40,7 @@ func (d *WrapperDriver) Open(name string) (driver.Conn, error) {
 			}
 		}
 	}
-	return &WrapperConn{conn, d.application}, nil
+	return &WrapperConn{d.prefix, conn, d.application}, nil
 }
 
 type WrapperConnQueryerAndExecer struct {
@@ -51,7 +52,7 @@ type WrapperConnQueryerAndExecer struct {
 }
 
 func (w *WrapperConnQueryerAndExecer) Query(query string, args []driver.Value) (driver.Rows, error) {
-	txn := w.Application.StartTransaction(query, nil, nil)
+	txn := w.Application.StartTransaction(w.Prefix+query, nil, nil)
 	defer txn.End()
 	rs, err := w.Queryer.Query(query, args)
 	if err != nil {
@@ -61,7 +62,7 @@ func (w *WrapperConnQueryerAndExecer) Query(query string, args []driver.Value) (
 }
 
 func (w *WrapperConnQueryerAndExecer) Exec(query string, args []driver.Value) (driver.Result, error) {
-	txn := w.Application.StartTransaction(query, nil, nil)
+	txn := w.Application.StartTransaction(w.Prefix+query, nil, nil)
 	defer txn.End()
 	rs, err := w.Execer.Exec(query, args)
 	if err != nil {
@@ -71,7 +72,7 @@ func (w *WrapperConnQueryerAndExecer) Exec(query string, args []driver.Value) (d
 }
 
 func (w *WrapperConnQueryerAndExecer) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	txn := w.Application.StartTransaction(query, nil, nil)
+	txn := w.Application.StartTransaction(w.Prefix+query, nil, nil)
 	defer txn.End()
 	rs, err := w.QueryerContext.QueryContext(ctx, query, args)
 	if err != nil {
@@ -81,7 +82,7 @@ func (w *WrapperConnQueryerAndExecer) QueryContext(ctx context.Context, query st
 }
 
 func (w *WrapperConnQueryerAndExecer) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	txn := w.Application.StartTransaction(query, nil, nil)
+	txn := w.Application.StartTransaction(w.Prefix+query, nil, nil)
 	defer txn.End()
 	rs, err := w.ExecerContext.ExecContext(ctx, query, args)
 	txn.End()
@@ -92,6 +93,7 @@ func (w *WrapperConnQueryerAndExecer) ExecContext(ctx context.Context, query str
 }
 
 type WrapperConn struct {
+	Prefix string
 	driver.Conn
 	newrelic.Application
 }
@@ -104,23 +106,24 @@ func (w *WrapperConn) Prepare(query string) (driver.Stmt, error) {
 	if qs, ok := stmt.(driver.StmtQueryContext); ok {
 		if es, ok := stmt.(driver.StmtExecContext); ok {
 			return &ContextWrapperStmt{
-				WrapperStmt:      WrapperStmt{stmt, w.Application, query},
+				WrapperStmt:      WrapperStmt{w.Prefix, stmt, w.Application, query},
 				StmtQueryContext: qs,
 				StmtExecContext:  es,
 			}, nil
 		}
 	}
-	return &WrapperStmt{stmt, w.Application, query}, nil
+	return &WrapperStmt{w.Prefix, stmt, w.Application, query}, nil
 }
 
 type WrapperStmt struct {
+	prefix string
 	driver.Stmt
 	newrelic.Application
 	query string
 }
 
 func (s *WrapperStmt) Exec(args []driver.Value) (driver.Result, error) {
-	txn := s.Application.StartTransaction(s.query, nil, nil)
+	txn := s.Application.StartTransaction(s.prefix+s.query, nil, nil)
 	defer txn.End()
 	r, e := s.Stmt.Exec(args)
 	if e != nil {
@@ -130,7 +133,7 @@ func (s *WrapperStmt) Exec(args []driver.Value) (driver.Result, error) {
 }
 
 func (s *WrapperStmt) Query(args []driver.Value) (driver.Rows, error) {
-	txn := s.Application.StartTransaction(s.query, nil, nil)
+	txn := s.Application.StartTransaction(s.prefix+s.query, nil, nil)
 	defer txn.End()
 	r, e := s.Stmt.Query(args)
 	if e != nil {
@@ -146,7 +149,7 @@ type ContextWrapperStmt struct {
 }
 
 func (s *ContextWrapperStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	txn := s.Application.StartTransaction(s.query, nil, nil)
+	txn := s.Application.StartTransaction(s.prefix+s.query, nil, nil)
 	defer txn.End()
 	r, e := s.StmtExecContext.ExecContext(ctx, args)
 	if e != nil {
@@ -156,7 +159,7 @@ func (s *ContextWrapperStmt) ExecContext(ctx context.Context, args []driver.Name
 }
 
 func (s *ContextWrapperStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	txn := s.Application.StartTransaction(s.query, nil, nil)
+	txn := s.Application.StartTransaction(s.prefix+s.query, nil, nil)
 	defer txn.End()
 	r, e := s.StmtQueryContext.QueryContext(ctx, args)
 	if e != nil {

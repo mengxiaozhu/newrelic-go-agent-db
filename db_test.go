@@ -20,7 +20,7 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	driver := New(sqlmock.Pool, app)
+	driver := New(sqlmock.Pool, app, "fortest_")
 	_, sm, err := sqlmock.New()
 	if err != nil {
 		panic(err)
