@@ -15,7 +15,7 @@ func New(driver driver.Driver, application newrelic.Application) *WrapperDriver 
 
 type WrapperDriver struct {
 	driver.Driver
-	application newrelic.Application
+	Application newrelic.Application
 }
 
 func (d *WrapperDriver) Open(name string) (driver.Conn, error) {
@@ -33,7 +33,7 @@ func (d *WrapperDriver) Open(name string) (driver.Conn, error) {
 			if ec, ok := conn.(driver.ExecerContext); ok {
 				if e, ok := conn.(driver.Execer); ok {
 					return &dbagent.WrapperConnQueryerAndExecer{
-						WrapperConn:    dbagent.WrapperConn{prefix, conn, d.application},
+						WrapperConn:    dbagent.WrapperConn{prefix, conn, d.Application},
 						QueryerContext: qc,
 						ExecerContext:  ec,
 						Queryer:        q,
@@ -43,5 +43,5 @@ func (d *WrapperDriver) Open(name string) (driver.Conn, error) {
 			}
 		}
 	}
-	return &dbagent.WrapperConn{prefix, conn, d.application}, nil
+	return &dbagent.WrapperConn{prefix, conn, d.Application}, nil
 }
